@@ -229,7 +229,7 @@ void bp_t::output()
    uint64_t num_inst = (meas_conddir_n + meas_jumpdir_n + meas_jumpind_n + meas_jumpret_n + meas_notctrl_n);
    // uint64_t num_misp = (meas_conddir_m + meas_jumpind_m + meas_jumpret_m + meas_notctrl_m);
    printf("\n-----------------------------------------------BRANCH PREDICTION MEASUREMENTS (Full Simulation i.e. Counts Not Reset When Warmup Ends)----------------------------------------------\n");
-   printf("Type                  NumBr     MispBr        mr     mpki\n");
+   printf("Type                  NumBr     MispBr        MR     MPKI\n");
    // BP_OUTPUT("All              ", num_inst, num_misp, num_inst);
    BP_OUTPUT("CondDirect       ", meas_conddir_n, meas_conddir_m, num_inst);
    BP_OUTPUT("JumpDirect       ", meas_jumpdir_n, (uint64_t)0, num_inst);
