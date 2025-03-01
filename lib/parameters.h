@@ -24,9 +24,11 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef _PARAMETERS_H_
 #define _PARAMETERS_H_
 
+#define FOCA_LAB
+
 enum class VPTracks
 {
-    ALL  = 0,
+    ALL = 0,
     LoadsOnly,
     LoadsOnlyHitMiss,
     NumTracks

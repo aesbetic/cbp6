@@ -1,0 +1,7 @@
+# compiled outputs
+*.o
+lib/*.o
+lib/*.a
+
+# binary
+cbp

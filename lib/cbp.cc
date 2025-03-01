@@ -21,12 +21,12 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // Author: Eric Rotenberg (ericro@ncsu.edu)
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <assert.h>
 #include <string.h>
+#include <time.h>
 #include "cbp.h"
 #include "trace_reader.h"
 #include "fifo.h"
@@ -37,225 +37,275 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "parameters.h"
 
 uarchsim_t *sim;
+uint64_t sim_insts = 0;
+uint64_t heartbeat_insts = 1000000;
 
-int parseargs(int argc, char ** argv) 
+int parseargs(int argc, char **argv)
 {
-  int i = 1;
+   int i = 1;
 
-  // read optional flags
-  while (i < argc)
-  {
-     if (!strcmp(argv[i], "-d"))
-     {
-        PERFECT_CACHE = true;
-        i++;
-     }
-     else if (!strcmp(argv[i], "-b"))
-     {
-        PERFECT_BRANCH_PRED = true;
-        i++;
-     }
-     //else if (!strcmp(argv[i], "-i"))
-     //{
-     //   PERFECT_INDIRECT_PRED = true;
-     //   i++;
-     //}
-     else if (!strcmp(argv[i], "-P"))
-     {
-        PREFETCHER_ENABLE = true;
-        i++;
-     }
-     //else if (!strcmp(argv[i], "-f"))
-     //{
-     //   i++;
-     //   if (i < argc)
-     //   {
-     //      PIPELINE_FILL_LATENCY = atoi(argv[i]);
-     //      i++;
-     //   }
-     //   else
-     //   {
-     //      printf("Usage: missing pipeline fill latency: -f <pipeline_fill_latency>.\n");
-     //      exit(0);
-     //   }
-     //}
-     else if (!strcmp(argv[i], "-M"))
-     {
-        i++;
-        if (i < argc)
-        {
-           NUM_LDST_LANES = atoi(argv[i]);
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing # load/store lanes: -M <num_ldst_lanes>.\n");
-           exit(0);
-        }
-     }
-     else if (!strcmp(argv[i], "-A"))
-     {
-        i++;
-        if (i < argc)
-        {
-           NUM_ALU_LANES = atoi(argv[i]);
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing # alu lanes: -A <num_alu_lanes>.\n");
-           exit(0);
-        }
-     }
-     //else if (!strcmp(argv[i], "-s")) {
-     //   WRITE_ALLOCATE = true;
-     // i++;
-     //}
-     else if (!strcmp(argv[i], "-F"))
-     {
-        i++;
-        if (i < argc)
-        {
-           unsigned int temp1, temp2, temp3, temp4, temp5;
-           if (sscanf(argv[i], "%u,%u,%u,%u,%u", &temp1, &temp2, &temp3, &temp4, &temp5) == 5)
-           {
-              FETCH_WIDTH = (uint64_t)temp1;
-              FETCH_NUM_BRANCH = (uint64_t)temp2;
-              FETCH_STOP_AT_INDIRECT = (temp3 ? true : false);
-              FETCH_STOP_AT_TAKEN = (temp4 ? true : false);
-              FETCH_MODEL_ICACHE = (temp5 ? true : false);
-           }
-           else
-           {
-              printf("Usage: missing one or more fetch bundle constraints: -F <fetch_width>,<fetch_num_branch>,<fetch_stop_at_indirect>,<fetch_stop_at_taken>,<fetch_model_icache>.\n");
-              exit(0);
-           }
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing one or more fetch bundle constraints: -F <fetch_width>,<fetch_num_branch>,<fetch_stop_at_indirect>,<fetch_stop_at_taken>,<fetch_model_icache>.\n");
-           exit(0);
-        }
-     }
-     else if (!strcmp(argv[i], "-I"))
-     {
-        i++;
-        if (i < argc)
-        {
-           unsigned int temp1, temp2, temp3;
-           if (sscanf(argv[i], "%u,%u,%u", &temp1, &temp2, &temp3) == 3)
-           {
-              IC_SIZE = (uint64_t)(1 << temp1);
-              IC_ASSOC = (uint64_t)temp2;
-              IC_BLOCKSIZE = (uint64_t)temp3;
-           }
-           else
-           {
-              printf("Usage: missing one or more I$ parameters: -I <log2_size>,<assoc>,<blocksize>.\n");
-              exit(0);
-           }
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing I$ parameters: -I <log2_size>,<assoc>,<blocksize>.\n");
-           exit(0);
-        }
-     }
-     else if (!strcmp(argv[i], "-D"))
-     {
-        i++;
-        if (i < argc)
-        {
-           unsigned int temp1, temp2, temp3, temp4, temp5, temp6, temp7, temp8, temp9, temp10, temp11, temp12, temp13;
-           if (sscanf(argv[i], "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
-                      &temp1, &temp2, &temp3, &temp4,
-                      &temp5, &temp6, &temp7, &temp8,
-                      &temp9, &temp10, &temp11, &temp12,
-                      &temp13) == 13)
-           {
-              L1_SIZE = (uint64_t)(1 << temp1);
-              L1_ASSOC = (uint64_t)temp2;
-              L1_BLOCKSIZE = (uint64_t)temp3;
-              L1_LATENCY = (uint64_t)temp4;
+   // read optional flags
+   while (i < argc)
+   {
+      if (!strcmp(argv[i], "-d"))
+      {
+         PERFECT_CACHE = true;
+         i++;
+      }
+      else if (!strcmp(argv[i], "-b"))
+      {
+         PERFECT_BRANCH_PRED = true;
+         i++;
+      }
+      // else if (!strcmp(argv[i], "-i"))
+      //{
+      //    PERFECT_INDIRECT_PRED = true;
+      //    i++;
+      // }
+      else if (!strcmp(argv[i], "-P"))
+      {
+         PREFETCHER_ENABLE = true;
+         i++;
+      }
+      // else if (!strcmp(argv[i], "-f"))
+      //{
+      //    i++;
+      //    if (i < argc)
+      //    {
+      //       PIPELINE_FILL_LATENCY = atoi(argv[i]);
+      //       i++;
+      //    }
+      //    else
+      //    {
+      //       printf("Usage: missing pipeline fill latency: -f <pipeline_fill_latency>.\n");
+      //       exit(0);
+      //    }
+      // }
+      else if (!strcmp(argv[i], "-M"))
+      {
+         i++;
+         if (i < argc)
+         {
+            NUM_LDST_LANES = atoi(argv[i]);
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing # load/store lanes: -M <num_ldst_lanes>.\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-A"))
+      {
+         i++;
+         if (i < argc)
+         {
+            NUM_ALU_LANES = atoi(argv[i]);
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing # alu lanes: -A <num_alu_lanes>.\n");
+            exit(0);
+         }
+      }
+      // else if (!strcmp(argv[i], "-s")) {
+      //    WRITE_ALLOCATE = true;
+      //  i++;
+      // }
+      else if (!strcmp(argv[i], "-F"))
+      {
+         i++;
+         if (i < argc)
+         {
+            unsigned int temp1, temp2, temp3, temp4, temp5;
+            if (sscanf(argv[i], "%u,%u,%u,%u,%u", &temp1, &temp2, &temp3, &temp4, &temp5) == 5)
+            {
+               FETCH_WIDTH = (uint64_t)temp1;
+               FETCH_NUM_BRANCH = (uint64_t)temp2;
+               FETCH_STOP_AT_INDIRECT = (temp3 ? true : false);
+               FETCH_STOP_AT_TAKEN = (temp4 ? true : false);
+               FETCH_MODEL_ICACHE = (temp5 ? true : false);
+            }
+            else
+            {
+               printf("Usage: missing one or more fetch bundle constraints: -F <fetch_width>,<fetch_num_branch>,<fetch_stop_at_indirect>,<fetch_stop_at_taken>,<fetch_model_icache>.\n");
+               exit(0);
+            }
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing one or more fetch bundle constraints: -F <fetch_width>,<fetch_num_branch>,<fetch_stop_at_indirect>,<fetch_stop_at_taken>,<fetch_model_icache>.\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-I"))
+      {
+         i++;
+         if (i < argc)
+         {
+            unsigned int temp1, temp2, temp3;
+            if (sscanf(argv[i], "%u,%u,%u", &temp1, &temp2, &temp3) == 3)
+            {
+               IC_SIZE = (uint64_t)(1 << temp1);
+               IC_ASSOC = (uint64_t)temp2;
+               IC_BLOCKSIZE = (uint64_t)temp3;
+            }
+            else
+            {
+               printf("Usage: missing one or more I$ parameters: -I <log2_size>,<assoc>,<blocksize>.\n");
+               exit(0);
+            }
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing I$ parameters: -I <log2_size>,<assoc>,<blocksize>.\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-D"))
+      {
+         i++;
+         if (i < argc)
+         {
+            unsigned int temp1, temp2, temp3, temp4, temp5, temp6, temp7, temp8, temp9, temp10, temp11, temp12, temp13;
+            if (sscanf(argv[i], "%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u",
+                       &temp1, &temp2, &temp3, &temp4,
+                       &temp5, &temp6, &temp7, &temp8,
+                       &temp9, &temp10, &temp11, &temp12,
+                       &temp13) == 13)
+            {
+               L1_SIZE = (uint64_t)(1 << temp1);
+               L1_ASSOC = (uint64_t)temp2;
+               L1_BLOCKSIZE = (uint64_t)temp3;
+               L1_LATENCY = (uint64_t)temp4;
 
-              L2_SIZE = (uint64_t)(1 << temp5);
-              L2_ASSOC = (uint64_t)temp6;
-              L2_BLOCKSIZE = (uint64_t)temp7;
-              L2_LATENCY = (uint64_t)temp8;
+               L2_SIZE = (uint64_t)(1 << temp5);
+               L2_ASSOC = (uint64_t)temp6;
+               L2_BLOCKSIZE = (uint64_t)temp7;
+               L2_LATENCY = (uint64_t)temp8;
 
-              L3_SIZE = (uint64_t)(1 << temp9);
-              L3_ASSOC = (uint64_t)temp10;
-              L3_BLOCKSIZE = (uint64_t)temp11;
-              L3_LATENCY = (uint64_t)temp12;
+               L3_SIZE = (uint64_t)(1 << temp9);
+               L3_ASSOC = (uint64_t)temp10;
+               L3_BLOCKSIZE = (uint64_t)temp11;
+               L3_LATENCY = (uint64_t)temp12;
 
-              MAIN_MEMORY_LATENCY = (uint64_t)temp13;
-           }
-           else
-           {
-              printf("Usage: missing one or more L1$, L2$, and L3$ parameters: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>.\n");
-              exit(0);
-           }
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing L1$, L2$, and L3$ parameters: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>.\n");
-           exit(0);
-        }
-     }
-     else if (!strcmp(argv[i], "-E"))
-     {
-        i++;
-        PRINT_PER_EPOCH_STATS = true;
-        if (i < argc)
-        {
-           uint64_t epoch_size_insts;
-           if (sscanf(argv[i], "%lu", &epoch_size_insts) == 1)
-           {
-              EPOCH_SIZE_INSTS = epoch_size_insts;
-           }
-           else
-           {
-              printf("Usage: missing epoch size: -E <epoch_size>\n");
-              exit(0);
-           }
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing epoch size: -E <epoch_size>\n");
-           exit(0);
-        }
-     }
-     else if (!strcmp(argv[i], "-w"))
-     {
-        i++;
-        if (i < argc)
-        {
-           WINDOW_SIZE = atoi(argv[i]);
-           i++;
-        }
-        else
-        {
-           printf("Usage: missing window size: -w <window_size>.\n");
-           exit(0);
-        }
-     }
-     else
-     {
-        break;
-     }
-  }
+               MAIN_MEMORY_LATENCY = (uint64_t)temp13;
+            }
+            else
+            {
+               printf("Usage: missing one or more L1$, L2$, and L3$ parameters: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>.\n");
+               exit(0);
+            }
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing L1$, L2$, and L3$ parameters: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>.\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-E"))
+      {
+         i++;
+         PRINT_PER_EPOCH_STATS = true;
+         if (i < argc)
+         {
+            uint64_t epoch_size_insts;
+            if (sscanf(argv[i], "%lu", &epoch_size_insts) == 1)
+            {
+               EPOCH_SIZE_INSTS = epoch_size_insts;
+            }
+            else
+            {
+               printf("Usage: missing epoch size: -E <epoch_size>\n");
+               exit(0);
+            }
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing epoch size: -E <epoch_size>\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-S"))
+      {
+         i++;
+         if (i < argc)
+         {
+            uint64_t _insts;
+            if (sscanf(argv[i], "%lu", &_insts) == 1)
+            {
+               sim_insts = _insts;
+            }
+            else
+            {
+               printf("Usage: missing sim insts: -S <num_insts>\n");
+               exit(0);
+            }
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing sim insts: -S <num_insts>\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-H"))
+      {
+         i++;
+         if (i < argc)
+         {
+            uint64_t _insts;
+            if (sscanf(argv[i], "%lu", &_insts) == 1)
+            {
+               heartbeat_insts = _insts;
+            }
+            else
+            {
+               printf("Usage: missing heartbeat insts: -H <num_insts>\n");
+               exit(0);
+            }
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing heartbeat insts: -H <num_insts>\n");
+            exit(0);
+         }
+      }
+      else if (!strcmp(argv[i], "-w"))
+      {
+         i++;
+         if (i < argc)
+         {
+            WINDOW_SIZE = atoi(argv[i]);
+            i++;
+         }
+         else
+         {
+            printf("Usage: missing window size: -w <window_size>.\n");
+            exit(0);
+         }
+      }
+      else
+      {
+         break;
+      }
+   }
 
-  if (i < argc) {
-     return(i);
-  }
-  else {
-     //printf("usage:\t%s\n[optional: -d to enable perfect data cache]\n\t[optional: -b to enable perfect branch prediction (all branch types)]\n\t[optional: -i to enable perfect indirect-branch prediction]\n\t[optional: -P to enable stride prefetcher in L1D]\n\t[optional: -f <pipeline_fill_latency>]\n\t[optional: -M <num_ldst_lanes>\n\t[optional: -A <num_alu_lanes>\n\t[optional: -F <fetch_width>,<fetch_num_branch>,<fetch_stop_at_indirect>,<fetch_stop_at_taken>,<fetch_model_icache>]\n\t[optional: -I <log2_ic_size>,<ic_assoc>,<ic_blocksize>]\n\t[optional: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>]\n\t[optional: -w <window_size>]\n\t[REQUIRED: .gz trace file]\n\t[optional: contestant's arguments]\n", argv[0]);
-     printf("usage:\t%s\n"
-             //"\t[optional: -v to enable value prediction]\n", 
+   if (i < argc)
+   {
+      return (i);
+   }
+   else
+   {
+      // printf("usage:\t%s\n[optional: -d to enable perfect data cache]\n\t[optional: -b to enable perfect branch prediction (all branch types)]\n\t[optional: -i to enable perfect indirect-branch prediction]\n\t[optional: -P to enable stride prefetcher in L1D]\n\t[optional: -f <pipeline_fill_latency>]\n\t[optional: -M <num_ldst_lanes>\n\t[optional: -A <num_alu_lanes>\n\t[optional: -F <fetch_width>,<fetch_num_branch>,<fetch_stop_at_indirect>,<fetch_stop_at_taken>,<fetch_model_icache>]\n\t[optional: -I <log2_ic_size>,<ic_assoc>,<ic_blocksize>]\n\t[optional: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>]\n\t[optional: -w <window_size>]\n\t[REQUIRED: .gz trace file]\n\t[optional: contestant's arguments]\n", argv[0]);
+      printf("usage:\t%s\n"
+             //"\t[optional: -v to enable value prediction]\n",
              //"\t[optional: -p to enable perfect value prediction (if -v also specified)]\n",
              "\t[optional: -d to enable perfect data cache]\n"
              "\t[optional: -b to enable perfect branch prediction (all branch types)]\n"
@@ -269,59 +319,80 @@ int parseargs(int argc, char ** argv)
              "\t[optional: -D <log2_L1_size>,<L1_assoc>,<L1_blocksize>,<L1_latency>,<log2_L2_size>,<L2_assoc>,<L2_blocksize>,<L2_latency>,<log2_L3_size>,<L3_assoc>,<L3_blocksize>,<L3_latency>,<main_memory_latency>]\n"
              "\t[optional: -w <window_size>]\n"
              "\t[optional: -E <epoch_size_insts> to enable dumping per-epoch conditional branch info\n"
-             "\t[REQUIRED: .gz trace file]\n", argv[0]);
-     exit(0);
-  }
+             "\t[optional: -S <simulation_insts> number of insts to simulate\n"
+             "\t[optional: -H <num_insts> print heartbeat after N instructions\n"
+             "\t[REQUIRED: .gz trace file]\n",
+             argv[0]);
+      exit(0);
+   }
 }
 
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
-  int i = parseargs(argc, argv);
-  TraceReader reader(argv[i]);
+   int i = parseargs(argc, argv);
+   TraceReader reader(argv[i]);
+   uint64_t inst_count = 0;
 
-  // Need to create simulator after parsing arguments (for global parameters).
-  sim = new uarchsim_t;
- 
-  // Get to next (optional) argument after trace filename.
-  i++;
-  //if (i < argc)
-  //   beginPredictor((argc - i), &(argv[i]));
-  //else
-  //   beginPredictor(0, (char **)NULL);
+   // Need to create simulator after parsing arguments (for global parameters).
+   sim = new uarchsim_t;
 
-  //if (i < argc)
-  //   beginCondDirPredictor((argc - i), &(argv[i]));
-  //else
-  //   beginCondDirPredictor(0, (char **)NULL);
-  beginCondDirPredictor();
+   clock_t sim_start_time = clock();
+   clock_t last_heartbeat_time = sim_start_time;
 
-  db_t *inst = reader.get_inst(); 
+   // Get to next (optional) argument after trace filename.
+   i++;
+   // if (i < argc)
+   //    beginPredictor((argc - i), &(argv[i]));
+   // else
+   //    beginPredictor(0, (char **)NULL);
 
-  //bool dump_activity = true;
-  //uint64_t current_fetch_cycle = 0;
-  while (inst != nullptr) 
-  {
-      //const bool logging_activated = (LOG_LEVEL != 0) && (current_fetch_cycle>= LOG_START_CYCLE) && (current_fetch_cycle<=LOG_END_CYCLE);
-      //if(logging_activated && dump_activity)
+   // if (i < argc)
+   //    beginCondDirPredictor((argc - i), &(argv[i]));
+   // else
+   //    beginCondDirPredictor(0, (char **)NULL);
+   beginCondDirPredictor();
+
+   db_t *inst = reader.get_inst();
+   inst_count++;
+
+   // bool dump_activity = true;
+   // uint64_t current_fetch_cycle = 0;
+   while (inst != nullptr)
+   {
+      // const bool logging_activated = (LOG_LEVEL != 0) && (current_fetch_cycle>= LOG_START_CYCLE) && (current_fetch_cycle<=LOG_END_CYCLE);
+      // if(logging_activated && dump_activity)
       //{
-      //    std::cout<<"======================================================= Begin "<<current_fetch_cycle<<"=======================================================\n";
-      //    dump_activity = false;
-      //}
+      //     std::cout<<"======================================================= Begin "<<current_fetch_cycle<<"=======================================================\n";
+      //     dump_activity = false;
+      // }
 
       sim->step(inst);
 
-      //const uint64_t next_fetch_cycle = sim->get_current_fetch_cycle();
-      //if(logging_activated && next_fetch_cycle != current_fetch_cycle)
-      //{
-      //    dump_activity = true;
-      //    std::cout<<"======================================================= End "<<current_fetch_cycle<<"->"<<next_fetch_cycle<<"=======================================================\n";
-      //}
-      //current_fetch_cycle = next_fetch_cycle;
-      delete inst;
-      inst = reader.get_inst();
-  }
+      if (!(inst_count % heartbeat_insts))
+      {
+         printf("[HEARTBEAT] Simulated %lu insts (epoch: %.1fs, total: %.1fs)\n", inst_count, (double)(clock() - last_heartbeat_time) / CLOCKS_PER_SEC, (double)(clock() - sim_start_time) / CLOCKS_PER_SEC);
+         last_heartbeat_time = clock();
+      }
 
-  endPredictor();
-  endCondDirPredictor();
-  sim->output();
+      // const uint64_t next_fetch_cycle = sim->get_current_fetch_cycle();
+      // if(logging_activated && next_fetch_cycle != current_fetch_cycle)
+      //{
+      //     dump_activity = true;
+      //     std::cout<<"======================================================= End "<<current_fetch_cycle<<"->"<<next_fetch_cycle<<"=======================================================\n";
+      // }
+      // current_fetch_cycle = next_fetch_cycle;
+      delete inst;
+
+      inst = reader.get_inst();
+      inst_count++;
+      if (sim_insts && inst_count >= sim_insts)
+      {
+         printf("Simulated %lu instructions, stoping simulation...\n", sim_insts);
+         break;
+      }
+   }
+
+   endPredictor();
+   endCondDirPredictor();
+   sim->output();
 }
