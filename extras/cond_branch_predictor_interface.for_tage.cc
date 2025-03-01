@@ -16,10 +16,9 @@
 
 // This file provides a sample predictor integration based on the interface provided.
 
+#include <cassert>
 #include "lib/sim_common_structs.h"
 #include "cbp2016_tage_sc_l.h"
-#include "my_cond_branch_predictor.h"
-#include <cassert>
 
 //
 // beginCondDirPredictor()
