@@ -5,8 +5,8 @@
 #include <string>
 #include <unordered_map>
 
-#define GHR_LEN 12
-#define GHR_MASK ((1ul << GHR_LEN) - 1)
+#define GHR_LEN 16
+#define GHR_MASK ((1ul << 16) - 1)
 #define PHT_SIZE (1 << GHR_LEN)
 
 //--------------------------------------------------------//
