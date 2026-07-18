@@ -80,7 +80,7 @@ void BimodalPred::update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool
     uint32_t index = get_index(seq_no, piece, pc);
     assert(index < BIMODAL_TABLE_SIZE);
 
-    if (pred_dir)
+    if (resolve_dir)
     {
         bimodal_table[index] = bimodal_table[index] < MAX_COUNTER_VAL ? bimodal_table[index] + 1 : bimodal_table[index];
     }
