@@ -11,7 +11,12 @@ std::string MyPred::get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc)
 
 uint16_t MyPred::get_bht_index(uint64_t pc)
 {
-    return (pc >> 2) % BHT_SIZE; // Shift out the aligned address bits
+    pc >>= 2;  // remove 4-byte alignment bits
+    pc ^= pc >> 10;
+    pc ^= pc >> 20;
+    pc ^= pc >> 30;
+
+    return pc & (BHT_SIZE - 1);
 }
 
 void MyPred::init() {}
