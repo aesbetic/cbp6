@@ -2,9 +2,6 @@
 #include <cassert>
 #include <sstream>
 
-// global variable
-MyPred my_pred;
-
 std::string MyPred::get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc)
 {
     std::stringstream ss;
@@ -12,9 +9,9 @@ std::string MyPred::get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc)
     return ss.str();
 }
 
-uint32_t MyPred::get_pht_index(uint64_t key)
+uint16_t MyPred::get_bht_index(uint64_t pc)
 {
-    return key % PHT_SIZE;
+    return (pc >> 2) % BHT_SIZE; // Shift out the aligned address bits
 }
 
 void MyPred::init() {}
@@ -23,13 +20,16 @@ void MyPred::fini() {}
 
 bool MyPred::predict(uint64_t seq_no, uint8_t piece, uint64_t pc)
 {
-    uint32_t index = get_pht_index(ghr);
-    assert(index < PHT_SIZE);
+    uint16_t bht_index = get_bht_index(pc);
+    assert(bht_index < BHT_SIZE);
+
+    uint16_t bhr = bht[bht_index];
+    assert(bhr < PHT_SIZE);
 
     std::string br_id = get_br_id(seq_no, piece, pc);
-    br_hist.insert(std::pair<std::string, uint64_t>(br_id, ghr));
+    br_id_to_bhr_map.insert(std::pair<std::string, uint16_t>(br_id, bhr));
 
-    return (pht[index] >= 2);
+    return (pht[bhr] >= 2);
 }
 
 void MyPred::spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve_dir, const bool pred_dir, const uint64_t next_pc)
@@ -51,35 +51,35 @@ void MyPred::spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool
     // in this spec_update function is valid or not, please email us.
     //---------------------------------------------------------------------------------------//
 
-    ghr <<= 1;
-    ghr &= GHR_MASK;
-    ghr |= resolve_dir;
+    uint16_t bht_index = get_bht_index(pc);
+    assert(bht_index < BHT_SIZE);
+    
+    uint16_t bhr = bht[bht_index];
+    bhr <<= 1;
+    bhr |= resolve_dir;
+    bhr %= (1 << BHR_LEN);
+    
+    bht[bht_index] = bhr;
 }
 
 void MyPred::update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve_dir, const bool pred_dir, const uint64_t next_pc)
 {
     std::string br_id = get_br_id(seq_no, piece, pc);
-    auto it = br_hist.find(br_id);
-    assert(it != br_hist.end());
-
-    uint64_t ghr_to_use = it->second;
-    uint32_t index = get_pht_index(ghr);
-    assert(index < PHT_SIZE);
+    auto it = br_id_to_bhr_map.find(br_id);
+    uint16_t bhr = it->second;
+    
+    uint8_t two_bit_counter = pht[bhr];
 
     if (resolve_dir)
     {
-        if (pht[index] < 3)
-            pht[index]++;
+        if (two_bit_counter < 3)
+            pht[bhr]++;
     }
     else
     {
-        if (pht[index])
-            pht[index]--;
+        if (two_bit_counter)
+            pht[bhr]--;
     }
-}
-
-void MyPred::commit(uint64_t seq_no, uint8_t piece, uint64_t pc)
-{
-    std::string br_id = get_br_id(seq_no, piece, pc);
-    br_hist.erase(br_id);
+    
+    br_id_to_bhr_map.erase(br_id);
 }

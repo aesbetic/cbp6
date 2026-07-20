@@ -17,9 +17,10 @@
 // This file provides a sample predictor integration based on the interface provided.
 
 #include "lib/sim_common_structs.h"
-#include "base_pred.h"
 #include "my_pred.h"
 #include <cassert>
+
+MyPred my_pred;
 
 //
 // beginCondDirPredictor()
@@ -29,8 +30,6 @@
 //
 void beginCondDirPredictor()
 {
-    // setup sample_predictor
-    base_bp.init();
     my_pred.init();
 }
 
@@ -43,12 +42,7 @@ void beginCondDirPredictor()
 //
 bool get_cond_dir_prediction(uint64_t seq_no, uint8_t piece, uint64_t pc, const uint64_t pred_cycle)
 {
-    const bool base_bp_pred = base_bp.predict(seq_no, piece, pc);
-    const bool my_bp_pred = my_pred.predict(seq_no, piece, pc);
-
-    // You can chose either of the preidctions
-    // or do some consensus. Whatever you wish!
-    return (my_bp_pred == base_bp_pred) ? my_bp_pred : base_bp_pred;
+    return my_pred.predict(seq_no, piece, pc);
 }
 
 //
@@ -65,7 +59,6 @@ void spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, InstClass inst_cla
 
     if (is_cond_br(inst_class))
     {
-        base_bp.spec_update(seq_no, piece, pc, resolve_dir, pred_dir, next_pc);
         my_pred.spec_update(seq_no, piece, pc, resolve_dir, pred_dir, next_pc);
     }
 }
@@ -98,7 +91,6 @@ void notify_instr_execute_resolve(uint64_t seq_no, uint8_t piece, uint64_t pc, c
         {
             const bool _resolve_dir = _exec_info.taken.value();
             const uint64_t _next_pc = _exec_info.next_pc;
-            base_bp.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
             my_pred.update(seq_no, piece, pc, _resolve_dir, pred_dir, _next_pc);
         }
         else
@@ -117,10 +109,6 @@ void notify_instr_execute_resolve(uint64_t seq_no, uint8_t piece, uint64_t pc, c
 // For the sample predictor implementation, we do not leverage commit information
 void notify_instr_commit(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool pred_dir, const ExecuteInfo &_exec_info, const uint64_t commit_cycle)
 {
-    if (is_br(_exec_info.dec_info.insn_class) && is_cond_br(_exec_info.dec_info.insn_class))
-    {
-        my_pred.commit(seq_no, piece, pc);
-    }
 }
 
 //
@@ -131,6 +119,5 @@ void notify_instr_commit(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool
 //
 void endCondDirPredictor()
 {
-    base_bp.fini();
     my_pred.fini();
 }
