@@ -1,5 +1,5 @@
-#ifndef __MY_PRED_H__
-#define __MY_PRED_H__
+#ifndef __PAg_H__
+#define __PAg_H__
 
 #include <cstdint>
 #include <string>
@@ -7,13 +7,12 @@
 
 #define BHT_SIZE 1024 // Branch History Table Size
 #define BHR_LEN 10 // Branch History Register Length
-#define GHR_MASK ((1ul << GHR_LEN) - 1)
 #define PHT_SIZE (1 << BHR_LEN) // Pattern History Table Size
 
 //--------------------------------------------------------//
 // This implements a Local-History Predictor (PAg)
 //--------------------------------------------------------//
-class MyPred
+class PAg
 {
 private:
     uint16_t bht[BHT_SIZE];
@@ -30,8 +29,8 @@ private:
     uint16_t get_bht_index(uint64_t pc);
 
 public:
-    MyPred() {}
-    ~MyPred() {}
+    PAg() {}
+    ~PAg() {}
 
     // interface functions
     void init();

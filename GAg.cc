@@ -1,43 +1,35 @@
-#include "my_pred.h"
+#include "GAg.h"
 #include <cassert>
 #include <sstream>
 
-std::string MyPred::get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc)
+std::string GAg::get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc)
 {
     std::stringstream ss;
     ss << seq_no << piece << pc;
     return ss.str();
 }
 
-uint16_t MyPred::get_bht_index(uint64_t pc)
+uint32_t GAg::get_pht_index(uint64_t key)
 {
-    pc >>= 2;  // remove 4-byte alignment bits
-    pc ^= pc >> 10;
-    pc ^= pc >> 20;
-    pc ^= pc >> 30;
-
-    return pc & (BHT_SIZE - 1);
+    return key % PHT_SIZE;
 }
 
-void MyPred::init() {}
+void GAg::init() {}
 
-void MyPred::fini() {}
+void GAg::fini() {}
 
-bool MyPred::predict(uint64_t seq_no, uint8_t piece, uint64_t pc)
+bool GAg::predict(uint64_t seq_no, uint8_t piece, uint64_t pc)
 {
-    uint16_t bht_index = get_bht_index(pc);
-    assert(bht_index < BHT_SIZE);
-
-    uint16_t bhr = bht[bht_index];
-    assert(bhr < PHT_SIZE);
+    uint32_t index = get_pht_index(ghr);
+    assert(index < PHT_SIZE);
 
     std::string br_id = get_br_id(seq_no, piece, pc);
-    br_id_to_bhr_map.insert(std::pair<std::string, uint16_t>(br_id, bhr));
+    br_hist.insert(std::pair<std::string, uint64_t>(br_id, ghr));
 
-    return (pht[bhr] >= 2);
+    return (pht[index] >= 2);
 }
 
-void MyPred::spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve_dir, const bool pred_dir, const uint64_t next_pc)
+void GAg::spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve_dir, const bool pred_dir, const uint64_t next_pc)
 {
     //---------------------------------------------------------------------------------------//
     // Remember that the spec_update function is called right after the BP predicted for
@@ -56,35 +48,35 @@ void MyPred::spec_update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool
     // in this spec_update function is valid or not, please email us.
     //---------------------------------------------------------------------------------------//
 
-    uint16_t bht_index = get_bht_index(pc);
-    assert(bht_index < BHT_SIZE);
-    
-    uint16_t bhr = bht[bht_index];
-    bhr <<= 1;
-    bhr |= resolve_dir;
-    bhr %= (1 << BHR_LEN);
-    
-    bht[bht_index] = bhr;
+    ghr <<= 1;
+    ghr &= GHR_MASK;
+    ghr |= resolve_dir;
 }
 
-void MyPred::update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve_dir, const bool pred_dir, const uint64_t next_pc)
+void GAg::update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve_dir, const bool pred_dir, const uint64_t next_pc)
 {
     std::string br_id = get_br_id(seq_no, piece, pc);
-    auto it = br_id_to_bhr_map.find(br_id);
-    uint16_t bhr = it->second;
-    
-    uint8_t two_bit_counter = pht[bhr];
+    auto it = br_hist.find(br_id);
+    assert(it != br_hist.end());
+
+    uint64_t ghr_to_use = it->second;
+    uint32_t index = get_pht_index(ghr);
+    assert(index < PHT_SIZE);
 
     if (resolve_dir)
     {
-        if (two_bit_counter < 3)
-            pht[bhr]++;
+        if (pht[index] < 3)
+            pht[index]++;
     }
     else
     {
-        if (two_bit_counter)
-            pht[bhr]--;
+        if (pht[index])
+            pht[index]--;
     }
-    
-    br_id_to_bhr_map.erase(br_id);
+}
+
+void GAg::commit(uint64_t seq_no, uint8_t piece, uint64_t pc)
+{
+    std::string br_id = get_br_id(seq_no, piece, pc);
+    br_hist.erase(br_id);
 }
