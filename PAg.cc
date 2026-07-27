@@ -1,4 +1,4 @@
-#include "my_pred.h"
+#include "PAg.h"
 #include <cassert>
 #include <sstream>
 
@@ -85,6 +85,10 @@ void PAg::update(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool resolve
         if (two_bit_counter)
             pht[bhr]--;
     }
-    
+}
+
+void PAg::commit(uint64_t seq_no, uint8_t piece, uint64_t pc)
+{
+    std::string br_id = get_br_id(seq_no, piece, pc);
     br_id_to_bhr_map.erase(br_id);
 }

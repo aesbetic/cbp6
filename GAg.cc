@@ -1,5 +1,6 @@
 #include "GAg.h"
 #include <cassert>
+#include <cstdint>
 #include <sstream>
 
 std::string GAg::get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc)
@@ -17,6 +18,17 @@ uint32_t GAg::get_pht_index(uint64_t key)
 void GAg::init() {}
 
 void GAg::fini() {}
+
+uint64_t GAg::get_ghr() {
+    return ghr;
+}
+
+uint32_t GAg::get_br_hist(uint64_t seq_no, uint8_t piece, uint64_t pc) {
+    std::string br_id = get_br_id(seq_no, piece, pc);
+    auto it = br_hist.find(br_id);
+
+    return it->second % PHT_SIZE;
+}
 
 bool GAg::predict(uint64_t seq_no, uint8_t piece, uint64_t pc)
 {
