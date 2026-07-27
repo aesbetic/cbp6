@@ -28,6 +28,7 @@ private:
     // have access to such APIs, we are storing it by ourselves.
     std::unordered_map<std::string, Predictions> predictions_map;
     std::string get_br_id(uint64_t seq_no, uint8_t piece, uint64_t pc);
+    uint32_t get_cpt_index(uint64_t pc, uint32_t ghr);
 
 public:
     MyPred() {}
