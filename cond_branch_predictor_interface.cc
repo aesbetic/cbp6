@@ -109,6 +109,7 @@ void notify_instr_execute_resolve(uint64_t seq_no, uint8_t piece, uint64_t pc, c
 // For the sample predictor implementation, we do not leverage commit information
 void notify_instr_commit(uint64_t seq_no, uint8_t piece, uint64_t pc, const bool pred_dir, const ExecuteInfo &_exec_info, const uint64_t commit_cycle)
 {
+    my_pred.commit(seq_no, piece, pc);
 }
 
 //
